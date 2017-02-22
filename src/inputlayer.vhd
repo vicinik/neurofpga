@@ -14,19 +14,19 @@ entity InputLayer is
 		inRst         : in  std_ulogic;
 		-- Layer input
 		iInputs       : in  neuro_real_vector(gNumberInputs - 1 downto 0);
-		iGradients    : in  neuro_real_vector(gNumberInputs * gNumberNextLayer - 1 downto 0);
+		iGradients    : in  neuro_real_vector(gNumberNextLayer - 1 downto 0);
 		-- Learning inputs
 		iEta          : in  neuro_real;
 		iAlpha        : in  neuro_real;
 		iUpdateWeight : in  std_ulogic;
 		-- Layer output
-		oOutput       : out neuro_real_vector(gNumberInputs * gNumberNextLayer - 1 downto 0)
+		oOutputs      : out neuro_real_vector((gNumberInputs + 1) * gNumberNextLayer - 1 downto 0)
 	);
 end entity;
 
 architecture Bhv of InputLayer is
-	signal BiasNeuronOutput : neuro_real                    := cNeuroNull;
-	signal BiasNeuronDows   : neuro_real_vector(gNumberNextLayer - 1 downto 0);
+	signal BiasNeuronOutput : neuro_real                                       := cNeuroNull;
+	signal BiasNeuronDows   : neuro_real_vector(gNumberNextLayer - 1 downto 0) := (others => cNeuroNull);
 begin
 	--------------------------------------------------------------------
 	-- Connections from input to next layer. No input neurons required,
@@ -37,12 +37,12 @@ begin
 			port map(
 				iClk          => iClk,
 				inRst         => inRst,
-				iInput        => iInputs(i / gNumberNextLayer),
-				iGradient     => iGradients(i mod gNumberNextLayer),
+				iInput        => iInputs(i mod gNumberInputs),
+				iGradient     => iGradients(i / gNumberInputs),
 				iEta          => iEta,
 				iAlpha        => iAlpha,
 				iUpdateWeight => iUpdateWeight,
-				oOutput       => oOutput(i mod gNumberNextLayer),
+				oOutput       => oOutputs(i + (i / gNumberInputs)),
 				oDow          => open
 			);
 	end generate;
@@ -78,7 +78,7 @@ begin
 				iEta          => iEta,
 				iAlpha        => iAlpha,
 				iUpdateWeight => iUpdateWeight,
-				oOutput       => oOutput(i),
+				oOutput       => oOutputs((i + 1) * (gNumberInputs + 1) - 1),
 				oDow          => BiasNeuronDows(i)
 			);
 	end generate;
