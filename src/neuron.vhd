@@ -49,8 +49,8 @@ begin
 		inputNxR <= inputR;
 		sumInput := cNeuroNull;
 
-		for i in 0 to gNumberInputs loop
-			sumInput := sumInput + iInputs(i);
+		for i in 0 to gNumberInputs - 1 loop
+			sumInput := resize(sumInput + iInputs(i));
 		end loop;
 
 		inputNxR <= sumInput;
@@ -67,10 +67,10 @@ begin
 		dow    := cNeuroNull;
 
 		if (gTypeOfNeuron = Output_Neuron) then
-			dow := iDows(0) - output;
+			dow := resize(iDows(0) - output);
 		elsif (gTypeOfNeuron = Hidden_Neuron) then
-			for i in 0 to gNumberDows loop
-				dow := dow + iDows(i);
+			for i in 0 to gNumberDows - 1 loop
+				dow := resize(dow + iDows(i));
 			end loop;
 		end if;
 		
@@ -81,7 +81,7 @@ begin
 	-- Output port assignments
 	--------------------------------------------------------------------
 	output    <= cNeuroOne when gTypeOfNeuron = Bias_Neuron else neuro_activation_func(inputR);
-	gradient  <= cNeuroNull when gTypeOfNeuron = Bias_Neuron else dowR * neuro_activation_deriv(output);
+	gradient  <= cNeuroNull when gTypeOfNeuron = Bias_Neuron else resize(dowR * neuro_activation_deriv(output));
 	oOutput   <= output;
 	oGradient <= gradient;
 end architecture;

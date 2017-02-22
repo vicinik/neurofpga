@@ -5,8 +5,11 @@ vcom -2008 -work work {../src/neuron.vhd}
 vcom -2008 -work work {../src/connection.vhd}
 vcom -2008 -work work {../src/inputlayer.vhd}
 vcom -2008 -work work {../src/hiddenlayer.vhd}
+vcom -2008 -work work {../src/outputlayer.vhd}
+vcom -2008 -work work {../src/net.vhd}
+vcom -2008 -work work {../src/tbneuralnet.vhd}
 
-#vsim cpu_tb
-#do wave_ue7.do
+vsim TbNeuralNet
+do wave.do
 
-#run 55 us;
+run 10 ms;

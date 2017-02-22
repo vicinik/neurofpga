@@ -8,19 +8,9 @@ package NeuroFPGA is
 	--------------------------------------------------------------------
 	-- Type declarations
 	--------------------------------------------------------------------
-	subtype neuro_real is sfixed(3 downto -12);
+	subtype neuro_real is sfixed(4 downto -11);
 	type neuro_real_vector is array (natural range <>) of neuro_real;
 	type tNeuron is (Hidden_Neuron, Bias_Neuron, Output_Neuron);
-	type tConnectionToNeuron is record
-		Value    : neuro_real;
-		Gradient : neuro_real;
-	end record;
-	type tNeuronToConnection is record
-		Value : neuro_real;
-		Dow   : neuro_real;
-	end record;
-	type con_to_neuron_vector is array (natural range <>) of tConnectionToNeuron;
-	type neuron_to_con_vector is array (natural range <>) of tNeuronToConnection;
 
 	--------------------------------------------------------------------
 	-- Constants
@@ -38,6 +28,10 @@ package NeuroFPGA is
 	function to_neuro_real(pInput : real) return neuro_real;
 	function to_neuro_real(pInput : std_ulogic) return neuro_real;
 	function to_neuro_real_vector(pInput : std_ulogic_vector) return neuro_real_vector;
+	function to_std_ulogic(pInput : neuro_real) return std_ulogic;
+	function to_std_ulogic_vector(pInput : neuro_real_vector) return std_ulogic_vector;
+	function calculate_avg(pInput : neuro_real_vector) return neuro_real;
+	function resize(pInput : sfixed) return neuro_real;
 end package;
 
 package body NeuroFPGA is
@@ -105,9 +99,52 @@ package body NeuroFPGA is
 	function to_neuro_real_vector(pInput : std_ulogic_vector) return neuro_real_vector is
 		variable ret : neuro_real_vector(pInput'range) := (others => cNeuroNull);
 	begin
-		for i in 0 to pInput'length - 1 loop
+		for i in pInput'range loop
 			ret(i) := to_neuro_real(pInput(i));
 		end loop;
 		return ret;
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Conversion from neuro_real to std_ulogic
+	--------------------------------------------------------------------
+	function to_std_ulogic(pInput : neuro_real) return std_ulogic is
+	begin
+		if (pInput >= to_neuro_real(0.5)) then return '1';
+		else return '0';
+		end if;
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Conversion from neuro_real_vector to std_ulogic_vector
+	--------------------------------------------------------------------
+	function to_std_ulogic_vector(pInput : neuro_real_vector) return std_ulogic_vector is
+		variable ret : std_ulogic_vector(pInput'range) := (others => '0');
+	begin
+		for i in pInput'range loop
+			ret(i) := to_std_ulogic(pInput(i));
+		end loop;
+		return ret;
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Calculates the average of a neuro_real_vector
+	--------------------------------------------------------------------
+	function calculate_avg(pInput : neuro_real_vector) return neuro_real is
+		variable sum : neuro_real := cNeuroNull;
+		variable len : natural := pInput'length;
+	begin
+		for i in pInput'range loop
+			sum := resize(sum + pInput(i));
+		end loop;
+		return resize(sum / len);
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Resizes a sfixed to neuro_real dimensions
+	--------------------------------------------------------------------
+	function resize(pInput : sfixed) return neuro_real is
+	begin
+		return resize(pInput, neuro_real'high, neuro_real'low);
 	end function;
 end package body;

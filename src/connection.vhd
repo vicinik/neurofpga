@@ -47,14 +47,14 @@ begin
 		variable newDeltaWeight : neuro_real := cNeuroNull;
 	begin
 		-- The new delta-weight is calculated
-		newDeltaWeight := iEta * iInput * iGradient + iAlpha * deltaWeightR;
+		newDeltaWeight := resize(iEta * iInput * iGradient + iAlpha * deltaWeightR);
 		deltaWeightNxR <= newDeltaWeight;
-		weightNxR      <= weightR + newDeltaWeight;
+		weightNxR      <= resize(weightR + newDeltaWeight);
 	end process;
 
 	--------------------------------------------------------------------
 	-- Output port assignments
 	--------------------------------------------------------------------
-	oOutput <= iInput * weightR;
-	oDow    <= iGradient * weightR;
+	oOutput <= resize(iInput * weightR);
+	oDow    <= resize(iGradient * weightR);
 end architecture;
