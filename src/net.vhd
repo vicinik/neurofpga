@@ -6,10 +6,10 @@ use work.NeuroFPGA.all;
 
 entity Net is
 	generic(
-		gNumberInputs          : natural;
-		gNumberOutputs         : natural;
-		gNumberHiddenLayers    : natural;
-		gNumberNeuronsPerLayer : natural
+		gNumberInputs          : natural := 2;
+		gNumberOutputs         : natural := 1;
+		gNumberHiddenLayers    : natural := 1;
+		gNumberNeuronsPerLayer : natural := 5
 	);
 	port(
 		iClk      : in  std_ulogic;
@@ -39,28 +39,31 @@ architecture Bhv of Net is
 	signal gradientsSecondLayer : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
 	signal outputsSecondLayer   : neuro_real_vector((gNumberNeuronsPerLayer + 1) * gNumberOutputs - 1 downto 0) := (others => cNeuroNull);
 
-	-- Control signals
+	-- Statemachine types and signals
 	type aNetState is (eIdle, eForwardPropagate, eBackPropagate, eFinished);
 	type aNetRegSet is record
 		State        : aNetState;
 		Learn        : std_ulogic;
 		TickCount    : natural;
 		UpdateWeight : std_ulogic;
+		AvgError	 : neuro_real;
 	end record;
 	constant cNetRegInit : aNetRegSet := (
 		State        => eIdle,
 		Learn        => '0',
 		TickCount    => 0,
-		UpdateWeight => '0'
+		UpdateWeight => '0',
+		AvgError	 => cNeuroNull
 	);
 	signal NetR, NetNxR : aNetRegSet := cNetRegInit;
 begin
 	--------------------------------------------------------------------
-	-- Conversions
+	-- Conversions and output assignments
 	--------------------------------------------------------------------
 	inputs   <= to_neuro_real_vector(iInputs);
 	targets  <= to_neuro_real_vector(iTargets);
 	oOutputs <= to_std_ulogic_vector(outputs);
+	oError	 <= NetR.AvgError;
 
 	--------------------------------------------------------------------
 	-- Layer instantiations
@@ -162,7 +165,7 @@ begin
 					NetNxR.UpdateWeight <= cActivated;
 				elsif (NetR.TickCount = gNumberHiddenLayers + 3) then
 					NetNxR.UpdateWeight <= cInactivated;
-					oError				<= resize(abs(calculate_avg(gradientsSecondLayer)));
+					NetNxR.AvgError		<= resize(abs(calculate_avg(gradientsSecondLayer)));
 					NetNxR.State        <= eFinished;
 				end if;
 			-- A finish signal is set and the net returns to IDLE state.
