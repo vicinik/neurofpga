@@ -1,3 +1,9 @@
+-- +-------------------------------------------------------------------------------------+
+-- | Author      : Nik Haminger                                                          |
+-- | Description : Input layer entity. Instantiates only connections, as input values    |
+-- |               are processed directly.                                               |
+-- |                                                                                     |
+-- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;

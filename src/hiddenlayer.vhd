@@ -1,3 +1,9 @@
+-- +-------------------------------------------------------------------------------------+
+-- | Author      : Nik Haminger                                                          |
+-- | Description : Hidden layer entity. Instantiates neurons and connections, hence      |
+-- |               hidden layers are very ressource intensive!                           |
+-- |                                                                                     |
+-- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;

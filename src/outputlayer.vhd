@@ -1,3 +1,9 @@
+-- +-------------------------------------------------------------------------------------+
+-- | Author      : Nik Haminger                                                          |
+-- | Description : Output layer entity. Instantiates only output neurons.                |
+-- |                                                                                     |
+-- |                                                                                     |
+-- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;

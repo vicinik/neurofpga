@@ -1,5 +1,12 @@
+-- +-------------------------------------------------------------------------------------+
+-- | Author      : Nik Haminger                                                          |
+-- | Description : Package with types, constants and functions for the neural net        |
+-- |               implementation.                                                       |
+-- |                                                                                     |
+-- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.NUMERIC_STD.all;
 use ieee.fixed_pkg.all;
 use ieee.math_real.all;
 use work.Global.all;
@@ -13,14 +20,6 @@ package NeuroFPGA is
 	type tNeuron is (Hidden_Neuron, Bias_Neuron, Output_Neuron);
 
 	--------------------------------------------------------------------
-	-- Constants
-	--------------------------------------------------------------------
-	constant cNeuroNull              : neuro_real                    := to_sfixed(0.0, neuro_real'high, neuro_real'low);
-	constant cNeuroOne               : neuro_real                    := to_sfixed(1.0, neuro_real'high, neuro_real'low);
-	constant cNumberBiasNeuronInputs : natural                       := 1;
-	constant cBiasNeuronInput        : neuro_real_vector(0 downto 0) := (others => cNeuroOne);
-
-	--------------------------------------------------------------------
 	-- Function declarations
 	--------------------------------------------------------------------
 	function neuro_activation_func(pInput : neuro_real) return neuro_real;
@@ -31,10 +30,30 @@ package NeuroFPGA is
 	function to_std_ulogic(pInput : neuro_real) return std_ulogic;
 	function to_std_ulogic_vector(pInput : neuro_real_vector) return std_ulogic_vector;
 	function calculate_avg(pInput : neuro_real_vector) return neuro_real;
+	function calculate_rms(pInput : neuro_real_vector) return neuro_real;
 	function resize(pInput : sfixed) return neuro_real;
+	function percentage_to_neuro_real(pInput : std_ulogic_vector) return neuro_real;
+	function neuro_real_to_percentage(pInput : neuro_real) return std_ulogic_vector;
+
+	--------------------------------------------------------------------
+	-- Constants
+	--------------------------------------------------------------------
+	constant cNeuroNull              : neuro_real                    := to_sfixed(0.0, neuro_real'high, neuro_real'low);
+	constant cNeuroOne               : neuro_real                    := to_sfixed(1.0, neuro_real'high, neuro_real'low);
+	constant cNumberBiasNeuronInputs : natural                       := 1;
+	constant cBiasNeuronInput        : neuro_real_vector(0 downto 0) := (others => cNeuroOne);
+	constant cPercentageBitWidth     : natural                       := 7;
 end package;
 
 package body NeuroFPGA is
+	--------------------------------------------------------------------
+	-- Conversion from real to neuro_real
+	--------------------------------------------------------------------
+	function to_neuro_real(pInput : real) return neuro_real is
+	begin
+		return to_sfixed(pInput, neuro_real'high, neuro_real'low);
+	end function;
+
 	--------------------------------------------------------------------
 	-- Activation function
 	--------------------------------------------------------------------
@@ -116,14 +135,6 @@ package body NeuroFPGA is
 	end function;
 
 	--------------------------------------------------------------------
-	-- Conversion from real to neuro_real
-	--------------------------------------------------------------------
-	function to_neuro_real(pInput : real) return neuro_real is
-	begin
-		return to_sfixed(pInput, neuro_real'high, neuro_real'low);
-	end function;
-
-	--------------------------------------------------------------------
 	-- Conversion from std_ulogic to neuro_real
 	--------------------------------------------------------------------
 	function to_neuro_real(pInput : std_ulogic) return neuro_real is
@@ -184,6 +195,20 @@ package body NeuroFPGA is
 		end loop;
 		return resize(sum / len);
 	end function;
+	
+	--------------------------------------------------------------------
+	-- Calculates the RMS (mean square error) of a neuro_real_vector
+	--------------------------------------------------------------------
+	function calculate_rms(pInput : neuro_real_vector) return neuro_real is
+		variable sum : neuro_real := cNeuroNull;
+		variable len : natural    := 0;
+	begin
+		len := pInput'length;
+		for i in pInput'range loop
+			sum := resize(sum + pInput(i) * pInput(i));
+		end loop;
+		return resize(sum / len);
+	end function;
 
 	--------------------------------------------------------------------
 	-- Resizes a sfixed to neuro_real dimensions
@@ -191,5 +216,25 @@ package body NeuroFPGA is
 	function resize(pInput : sfixed) return neuro_real is
 	begin
 		return resize(pInput, neuro_real'high, neuro_real'low);
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Conversion from std_ulogic_vector with percentage value as
+	-- unsigned integer to neuro_real
+	--------------------------------------------------------------------
+	function percentage_to_neuro_real(pInput : std_ulogic_vector) return neuro_real is
+	begin
+		return resize(to_integer(unsigned(pInput)) / to_neuro_real(100.0));
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Conversion from neuro_real to std_ulogic_vector with percentage
+	-- value as unsigned integer
+	--------------------------------------------------------------------
+	function neuro_real_to_percentage(pInput : neuro_real) return std_ulogic_vector is
+		variable tmp : neuro_real := cNeuroNull;
+	begin
+		tmp := resize(pInput * to_neuro_real(100.0));
+		return std_ulogic_vector(to_unsigned(to_integer(tmp(neuro_real'high downto 0)), cPercentageBitWidth));
 	end function;
 end package body;

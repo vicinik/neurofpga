@@ -1,0 +1,1 @@
+create_clock -name "iClk" -period 15Mhz [get_ports {iClk}]

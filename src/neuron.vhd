@@ -1,3 +1,9 @@
+-- +-------------------------------------------------------------------------------------+
+-- | Author      : Nik Haminger                                                          |
+-- | Description : This entity represents a neuron. Depending on gTypeOfNeuron, one can  |
+-- |               instantiate a Bias, Hidden or Output neuron. An Input neuron is not   |
+-- |               needed, since input values are directly forwarded!                    |
+-- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;

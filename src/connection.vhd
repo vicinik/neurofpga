@@ -1,3 +1,9 @@
+-- +-------------------------------------------------------------------------------------+
+-- | Author      : Nik Haminger                                                          |
+-- | Description : Connection between the different layer neurons. Both previous layer   |
+-- |               neuron's output and next layer neuron's gradient are weighted. The    |
+-- |               weight update mechanism is implemented in this entity as well.        |
+-- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;

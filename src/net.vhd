@@ -1,3 +1,9 @@
+-- +-------------------------------------------------------------------------------------+
+-- | Author      : Nik Haminger                                                          |
+-- | Description : This is the entity where all parts of the neural net are assembled.   |
+-- |               If you use this implementation, you only need to instantiate this     |
+-- |               entity in your own design.                                            |
+-- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;
@@ -19,8 +25,8 @@ entity Net is
 		iTargets  : in  std_ulogic_vector(gNumberOutputs - 1 downto 0);
 		iStart    : in  std_ulogic;
 		-- Weight update inputs
-		iEta      : in  neuro_real;
-		iAlpha    : in  neuro_real;
+		iEta      : in  std_ulogic_vector(cPercentageBitWidth - 1 downto 0);
+		iAlpha    : in  std_ulogic_vector(cPercentageBitWidth - 1 downto 0);
 		iLearn    : in  std_ulogic;
 		-- Neural net outputs
 		oOutputs  : out std_ulogic_vector(gNumberOutputs - 1 downto 0);
@@ -31,13 +37,15 @@ end entity;
 
 architecture Bhv of Net is
 	-- Connection signals
-	signal inputs               : neuro_real_vector(gNumberInputs - 1 downto 0)                                 := (others => cNeuroNull);
-	signal targets              : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
-	signal outputs              : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
-	signal gradientsFirstLayer  : neuro_real_vector(gNumberNeuronsPerLayer - 1 downto 0)                        := (others => cNeuroNull);
-	signal outputsFirstLayer    : neuro_real_vector((gNumberInputs + 1) * gNumberNeuronsPerLayer - 1 downto 0)  := (others => cNeuroNull);
-	signal gradientsSecondLayer : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
-	signal outputsSecondLayer   : neuro_real_vector((gNumberNeuronsPerLayer + 1) * gNumberOutputs - 1 downto 0) := (others => cNeuroNull);
+	signal inputs              : neuro_real_vector(gNumberInputs - 1 downto 0)                                 := (others => cNeuroNull);
+	signal targets             : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
+	signal outputs             : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
+	signal Eta                 : neuro_real                                                                    := cNeuroNull;
+	signal Alpha               : neuro_real                                                                    := cNeuroNull;
+	signal gradientsFirstLayer : neuro_real_vector(gNumberNeuronsPerLayer - 1 downto 0)                        := (others => cNeuroNull);
+	signal outputsFirstLayer   : neuro_real_vector((gNumberInputs + 1) * gNumberNeuronsPerLayer - 1 downto 0)  := (others => cNeuroNull);
+	signal gradientsLastLayer  : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
+	signal outputsLastLayer    : neuro_real_vector((gNumberNeuronsPerLayer + 1) * gNumberOutputs - 1 downto 0) := (others => cNeuroNull);
 
 	-- Statemachine types and signals
 	type aNetState is (eIdle, eForwardPropagate, eBackPropagate, eFinished);
@@ -46,14 +54,14 @@ architecture Bhv of Net is
 		Learn        : std_ulogic;
 		TickCount    : natural;
 		UpdateWeight : std_ulogic;
-		AvgError	 : neuro_real;
+		AvgError     : neuro_real;
 	end record;
 	constant cNetRegInit : aNetRegSet := (
 		State        => eIdle,
 		Learn        => '0',
 		TickCount    => 0,
 		UpdateWeight => '0',
-		AvgError	 => cNeuroNull
+		AvgError     => cNeuroNull
 	);
 	signal NetR, NetNxR : aNetRegSet := cNetRegInit;
 begin
@@ -62,8 +70,10 @@ begin
 	--------------------------------------------------------------------
 	inputs   <= to_neuro_real_vector(iInputs);
 	targets  <= to_neuro_real_vector(iTargets);
+	Eta      <= percentage_to_neuro_real(iEta);
+	Alpha    <= percentage_to_neuro_real(iAlpha);
 	oOutputs <= to_std_ulogic_vector(outputs);
-	oError	 <= NetR.AvgError;
+	oError   <= NetR.AvgError;
 
 	--------------------------------------------------------------------
 	-- Layer instantiations
@@ -78,8 +88,8 @@ begin
 			inRst         => inRst,
 			iInputs       => inputs,
 			iGradients    => gradientsFirstLayer,
-			iEta          => iEta,
-			iAlpha        => iAlpha,
+			iEta          => Eta,
+			iAlpha        => Alpha,
 			iUpdateWeight => NetR.UpdateWeight,
 			oOutputs      => outputsFirstLayer
 		);
@@ -94,11 +104,11 @@ begin
 			iClk          => iClk,
 			inRst         => inRst,
 			iInputs       => outputsFirstLayer,
-			iGradients    => gradientsSecondLayer,
-			iEta          => iEta,
-			iAlpha        => iAlpha,
+			iGradients    => gradientsLastLayer,
+			iEta          => Eta,
+			iAlpha        => Alpha,
 			iUpdateWeight => NetR.UpdateWeight,
-			oOutputs      => outputsSecondLayer,
+			oOutputs      => outputsLastLayer,
 			oGradients    => gradientsFirstLayer
 		);
 
@@ -110,10 +120,10 @@ begin
 		port map(
 			iClk       => iClk,
 			inRst      => inRst,
-			iInputs    => outputsSecondLayer,
+			iInputs    => outputsLastLayer,
 			iTargets   => targets,
 			oOutputs   => outputs,
-			oGradients => gradientsSecondLayer
+			oGradients => gradientsLastLayer
 		);
 
 	--------------------------------------------------------------------
@@ -131,7 +141,7 @@ begin
 	--------------------------------------------------------------------
 	-- Combinational process with control
 	--------------------------------------------------------------------
-	Comb : process(NetR, iStart, iLearn, gradientsSecondLayer)
+	Comb : process(NetR, iStart, iLearn, gradientsLastLayer)
 	begin
 		NetNxR           <= NetR;
 		NetNxR.TickCount <= NetR.TickCount + 1;
@@ -165,7 +175,7 @@ begin
 					NetNxR.UpdateWeight <= cActivated;
 				elsif (NetR.TickCount = gNumberHiddenLayers + 3) then
 					NetNxR.UpdateWeight <= cInactivated;
-					NetNxR.AvgError		<= resize(abs(calculate_avg(gradientsSecondLayer)));
+					NetNxR.AvgError     <= resize(abs (calculate_rms(gradientsLastLayer)));
 					NetNxR.State        <= eFinished;
 				end if;
 			-- A finish signal is set and the net returns to IDLE state.
