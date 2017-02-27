@@ -29,7 +29,7 @@ end entity;
 
 architecture Bhv of Connection is
 	signal weightNxR, deltaWeightR, deltaWeightNxR : neuro_real := cNeuroNull;
-	signal weightR                                 : neuro_real := to_neuro_real(0.5);
+	signal weightR                                 : neuro_real := to_neuro_real(0.4);
 begin
 	--------------------------------------------------------------------
 	-- Register process

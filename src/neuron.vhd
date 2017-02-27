@@ -12,6 +12,7 @@ use work.NeuroFPGA.all;
 
 entity Neuron is
 	generic(
+		gLearning     : tLearning := Supervised;
 		gTypeOfNeuron : tNeuron;
 		gNumberInputs : natural;
 		gNumberDows   : natural
@@ -72,14 +73,16 @@ begin
 		dowNxR <= dowR;
 		dow    := cNeuroNull;
 
-		if (gTypeOfNeuron = Output_Neuron) then
+		if (gTypeOfNeuron = Output_Neuron and gLearning = Supervised) then
 			dow := resize(iDows(0) - output);
+		elsif (gTypeOfNeuron = Output_Neuron and gLearning = Reinforced) then
+			dow := iDows(0);
 		elsif (gTypeOfNeuron = Hidden_Neuron) then
 			for i in 0 to gNumberDows - 1 loop
 				dow := resize(dow + iDows(i));
 			end loop;
 		end if;
-		
+
 		dowNxR <= dow;
 	end process;
 

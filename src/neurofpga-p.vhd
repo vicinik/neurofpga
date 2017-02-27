@@ -6,7 +6,7 @@
 -- +-------------------------------------------------------------------------------------+
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.NUMERIC_STD.all;
+use ieee.numeric_std.all;
 use ieee.fixed_pkg.all;
 use ieee.math_real.all;
 use work.Global.all;
@@ -15,9 +15,10 @@ package NeuroFPGA is
 	--------------------------------------------------------------------
 	-- Type declarations
 	--------------------------------------------------------------------
-	subtype neuro_real is sfixed(4 downto -11);
+	subtype neuro_real is sfixed(3 downto -12);
 	type neuro_real_vector is array (natural range <>) of neuro_real;
 	type tNeuron is (Hidden_Neuron, Bias_Neuron, Output_Neuron);
+	type tLearning is (Supervised, Reinforced);
 
 	--------------------------------------------------------------------
 	-- Function declarations
@@ -43,6 +44,8 @@ package NeuroFPGA is
 	constant cNumberBiasNeuronInputs : natural                       := 1;
 	constant cBiasNeuronInput        : neuro_real_vector(0 downto 0) := (others => cNeuroOne);
 	constant cPercentageBitWidth     : natural                       := 7;
+	constant cActLow                 : neuro_real                    := to_sfixed(-1.0, neuro_real'high, neuro_real'low);
+	constant cActHigh                : neuro_real                    := to_sfixed(1.0, neuro_real'high, neuro_real'low);
 end package;
 
 package body NeuroFPGA is
@@ -64,10 +67,10 @@ package body NeuroFPGA is
 	function neuro_activation_func(pInput : neuro_real) return neuro_real is
 		variable vReturn : neuro_real := cNeuroNull;
 	begin
-		if (pInput < to_neuro_real(-1.0)) then
-			vReturn := to_neuro_real(-1.0);
-		elsif (pInput > to_neuro_real(1.0)) then
-			vReturn := to_neuro_real(1.0);
+		if (pInput < cActLow) then
+			vReturn := cActLow;
+		elsif (pInput > cActHigh) then
+			vReturn := cActHigh;
 		else
 			vReturn := pInput;
 		end if;
@@ -77,20 +80,12 @@ package body NeuroFPGA is
 	function neuro_activation_func_1(pInput : neuro_real) return neuro_real is
 		variable vReturn : neuro_real := cNeuroNull;
 	begin
-		if (pInput < to_neuro_real(-3.0)) then
-			vReturn := to_neuro_real(-1.0);
-		elsif (pInput < to_neuro_real(-2.0)) then
-			vReturn := resize(pInput * to_neuro_real(0.0625) - 0.8125);
-		elsif (pInput < to_neuro_real(-1.0)) then
-			vReturn := resize(pInput * to_neuro_real(0.1875) - 0.5625);
-		elsif (pInput > to_neuro_real(3.0)) then
-			vReturn := to_neuro_real(1.0);
-		elsif (pInput > to_neuro_real(2.0)) then
-			vReturn := resize(pInput * to_neuro_real(0.0625) + 0.8125);
-		elsif (pInput > to_neuro_real(1.0)) then
-			vReturn := resize(pInput * to_neuro_real(0.1875) + 0.5625);
+		if (pInput < cActLow) then
+			vReturn := cActLow;
+		elsif (pInput > cActHigh) then
+			vReturn := cActHigh;
 		else
-			vReturn := resize(pInput * to_neuro_real(0.75));
+			vReturn := to_neuro_real(tanh(to_real(pInput)));
 		end if;
 		return vReturn;
 	end function;
@@ -100,36 +95,28 @@ package body NeuroFPGA is
 	--------------------------------------------------------------------
 	-- This is the derivative of the activation function. It is needed
 	-- for the calculation of the gradient.
-	function neuro_activation_deriv(pInput : neuro_real) return neuro_real is
+	function neuro_activation_deriv_1(pInput : neuro_real) return neuro_real is
 		variable vReturn : neuro_real := cNeuroNull;
 	begin
-		if (pInput < to_neuro_real(-3.0)) then
-			vReturn := to_neuro_real(0.0);
-		elsif (pInput > to_neuro_real(3.0)) then
-			vReturn := to_neuro_real(0.0);
+		if (pInput < cActLow) then
+			vReturn := cNeuroNull;
+		elsif (pInput > cActHigh) then
+			vReturn := cNeuroNull;
 		else
-			vReturn := to_neuro_real(1.0);
+			vReturn := cNeuroOne;
 		end if;
 		return vReturn;
 	end function;
 	-- Derivative of the second activation function.
-	function neuro_activation_deriv_1(pInput : neuro_real) return neuro_real is
+	function neuro_activation_deriv(pInput : neuro_real) return neuro_real is
 		variable vReturn : neuro_real := cNeuroNull;
 	begin
-		if (pInput < to_neuro_real(-3.0)) then
-			vReturn := to_neuro_real(0.0);
-		elsif (pInput < to_neuro_real(-2.0)) then
-			vReturn := to_neuro_real(0.0625);
-		elsif (pInput < to_neuro_real(-1.0)) then
-			vReturn := to_neuro_real(0.1875);
-		elsif (pInput > to_neuro_real(3.0)) then
-			vReturn := to_neuro_real(0.0);
-		elsif (pInput > to_neuro_real(2.0)) then
-			vReturn := to_neuro_real(0.0625);
-		elsif (pInput > to_neuro_real(1.0)) then
-			vReturn := to_neuro_real(0.1875);
+		if (pInput < cActLow) then
+			vReturn := cNeuroNull;
+		elsif (pInput > cActHigh) then
+			vReturn := cNeuroNull;
 		else
-			vReturn := to_neuro_real(0.75);
+			vReturn := resize(1 / (1 + pInput * pInput));
 		end if;
 		return vReturn;
 	end function;
@@ -165,8 +152,11 @@ package body NeuroFPGA is
 	begin
 		if (pInput >= to_neuro_real(0.5)) then
 			return '1';
-		else
+		elsif (pInput < to_neuro_real(0.5)) then
 			return '0';
+		else
+			report "Metavalue in function to_std_ulogic" severity error;
+			return 'X';
 		end if;
 	end function;
 
@@ -195,7 +185,7 @@ package body NeuroFPGA is
 		end loop;
 		return resize(sum / len);
 	end function;
-	
+
 	--------------------------------------------------------------------
 	-- Calculates the RMS (mean square error) of a neuro_real_vector
 	--------------------------------------------------------------------
@@ -217,7 +207,7 @@ package body NeuroFPGA is
 	begin
 		return resize(pInput, neuro_real'high, neuro_real'low);
 	end function;
-	
+
 	--------------------------------------------------------------------
 	-- Conversion from std_ulogic_vector with percentage value as
 	-- unsigned integer to neuro_real
@@ -226,7 +216,7 @@ package body NeuroFPGA is
 	begin
 		return resize(to_integer(unsigned(pInput)) / to_neuro_real(100.0));
 	end function;
-	
+
 	--------------------------------------------------------------------
 	-- Conversion from neuro_real to std_ulogic_vector with percentage
 	-- value as unsigned integer

@@ -12,6 +12,7 @@ use work.NeuroFPGA.all;
 
 entity OutputLayer is
 	generic(
+		gLearning		 : tLearning;
 		gNumberNeurons   : natural;
 		gNumberPrevLayer : natural
 	);
@@ -35,6 +36,7 @@ begin
 	Neurons : for i in 0 to gNumberNeurons - 1 generate
 		Neur : entity work.Neuron
 			generic map(
+				gLearning	  => gLearning,
 				gTypeOfNeuron => Output_Neuron,
 				gNumberInputs => gNumberPrevLayer + 1,
 				gNumberDows   => 1

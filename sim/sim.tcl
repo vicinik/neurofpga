@@ -7,7 +7,7 @@ vcom -2008 -work work {../src/inputlayer.vhd}
 vcom -2008 -work work {../src/hiddenlayer.vhd}
 vcom -2008 -work work {../src/outputlayer.vhd}
 vcom -2008 -work work {../src/net.vhd}
-vcom -2008 -work work {../src/tbneuralnet.vhd}
+vcom -2008 -work work {tbneuralnet.vhd}
 
 vsim TbNeuralNet
 do wave.do

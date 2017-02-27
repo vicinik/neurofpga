@@ -12,40 +12,44 @@ use work.NeuroFPGA.all;
 
 entity Net is
 	generic(
-		gNumberInputs          : natural := 2;
-		gNumberOutputs         : natural := 1;
-		gNumberHiddenLayers    : natural := 1;
-		gNumberNeuronsPerLayer : natural := 5
+		gLearning              : tLearning := Supervised;
+		gNumberInputs          : natural   := 2;
+		gNumberOutputs         : natural   := 1;
+		gNumberHiddenLayers    : natural   := 1;
+		gNumberNeuronsPerLayer : natural   := 5
 	);
 	port(
-		iClk      : in  std_ulogic;
-		inRst     : in  std_ulogic;
+		iClk              : in  std_ulogic;
+		inRst             : in  std_ulogic;
 		-- Neural net inputs
-		iInputs   : in  std_ulogic_vector(gNumberInputs - 1 downto 0);
-		iTargets  : in  std_ulogic_vector(gNumberOutputs - 1 downto 0);
-		iStart    : in  std_ulogic;
+		iInputs           : in  neuro_real_vector(gNumberInputs - 1 downto 0);
+		iTargets          : in  neuro_real_vector(gNumberOutputs - 1 downto 0);
+		iStart            : in  std_ulogic;
 		-- Weight update inputs
-		iEta      : in  std_ulogic_vector(cPercentageBitWidth - 1 downto 0);
-		iAlpha    : in  std_ulogic_vector(cPercentageBitWidth - 1 downto 0);
-		iLearn    : in  std_ulogic;
+		iEta              : in  neuro_real;
+		iAlpha            : in  neuro_real;
+		iLearn            : in  std_ulogic;
 		-- Neural net outputs
-		oOutputs  : out std_ulogic_vector(gNumberOutputs - 1 downto 0);
-		oFinished : out std_ulogic;
-		oError    : out neuro_real
+		oOutputs          : out neuro_real_vector(gNumberOutputs - 1 downto 0);
+		oFinishedForward  : out std_ulogic;
+		oFinishedBackward : out std_ulogic;
+		oFinishedAll	  : out std_ulogic;
+		oError            : out neuro_real
 	);
 end entity;
 
 architecture Bhv of Net is
+	-- Connection types
+	type aHiddenLayerOutputArray is array (natural range <>) of neuro_real_vector((gNumberNeuronsPerLayer + 1) * gNumberNeuronsPerLayer - 1 downto 0);
+	type aHiddenLayerGradientArray is array (natural range <>) of neuro_real_vector(gNumberNeuronsPerLayer - 1 downto 0);
+
 	-- Connection signals
-	signal inputs              : neuro_real_vector(gNumberInputs - 1 downto 0)                                 := (others => cNeuroNull);
-	signal targets             : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
-	signal outputs             : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
-	signal Eta                 : neuro_real                                                                    := cNeuroNull;
-	signal Alpha               : neuro_real                                                                    := cNeuroNull;
-	signal gradientsFirstLayer : neuro_real_vector(gNumberNeuronsPerLayer - 1 downto 0)                        := (others => cNeuroNull);
-	signal outputsFirstLayer   : neuro_real_vector((gNumberInputs + 1) * gNumberNeuronsPerLayer - 1 downto 0)  := (others => cNeuroNull);
-	signal gradientsLastLayer  : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
-	signal outputsLastLayer    : neuro_real_vector((gNumberNeuronsPerLayer + 1) * gNumberOutputs - 1 downto 0) := (others => cNeuroNull);
+	signal gradientsFirstLayer      : neuro_real_vector(gNumberNeuronsPerLayer - 1 downto 0)                        := (others => cNeuroNull);
+	signal outputsFirstLayer        : neuro_real_vector((gNumberInputs + 1) * gNumberNeuronsPerLayer - 1 downto 0)  := (others => cNeuroNull);
+	signal gradientsLastLayer       : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
+	signal outputsLastLayer         : neuro_real_vector((gNumberNeuronsPerLayer + 1) * gNumberOutputs - 1 downto 0) := (others => cNeuroNull);
+	signal hiddenLayerOutputArray   : aHiddenLayerOutputArray(gNumberHiddenLayers - 2 downto 0)                     := (others => (others => cNeuroNull));
+	signal hiddenLayerGradientArray : aHiddenLayerGradientArray(gNumberHiddenLayers - 2 downto 0)                   := (others => (others => cNeuroNull));
 
 	-- Statemachine types and signals
 	type aNetState is (eIdle, eForwardPropagate, eBackPropagate, eFinished);
@@ -66,14 +70,9 @@ architecture Bhv of Net is
 	signal NetR, NetNxR : aNetRegSet := cNetRegInit;
 begin
 	--------------------------------------------------------------------
-	-- Conversions and output assignments
+	-- Output assignments
 	--------------------------------------------------------------------
-	inputs   <= to_neuro_real_vector(iInputs);
-	targets  <= to_neuro_real_vector(iTargets);
-	Eta      <= percentage_to_neuro_real(iEta);
-	Alpha    <= percentage_to_neuro_real(iAlpha);
-	oOutputs <= to_std_ulogic_vector(outputs);
-	oError   <= NetR.AvgError;
+	oError <= NetR.AvgError;
 
 	--------------------------------------------------------------------
 	-- Layer instantiations
@@ -86,34 +85,100 @@ begin
 		port map(
 			iClk          => iClk,
 			inRst         => inRst,
-			iInputs       => inputs,
+			iInputs       => iInputs,
 			iGradients    => gradientsFirstLayer,
-			iEta          => Eta,
-			iAlpha        => Alpha,
+			iEta          => iEta,
+			iAlpha        => iAlpha,
 			iUpdateWeight => NetR.UpdateWeight,
 			oOutputs      => outputsFirstLayer
 		);
 
-	HiddenLayer : entity work.HiddenLayer
-		generic map(
-			gNumberNeurons   => gNumberNeuronsPerLayer,
-			gNumberPrevLayer => gNumberInputs,
-			gNumberNextLayer => gNumberOutputs
-		)
-		port map(
-			iClk          => iClk,
-			inRst         => inRst,
-			iInputs       => outputsFirstLayer,
-			iGradients    => gradientsLastLayer,
-			iEta          => Eta,
-			iAlpha        => Alpha,
-			iUpdateWeight => NetR.UpdateWeight,
-			oOutputs      => outputsLastLayer,
-			oGradients    => gradientsFirstLayer
-		);
+	HiddenLayerGen : for i in 0 to gNumberHiddenLayers - 1 generate
+		OneLayer : if (gNumberHiddenLayers = 1) generate
+			HiddenLayer0 : entity work.HiddenLayer
+				generic map(
+					gNumberNeurons   => gNumberNeuronsPerLayer,
+					gNumberPrevLayer => gNumberInputs,
+					gNumberNextLayer => gNumberOutputs
+				)
+				port map(
+					iClk          => iClk,
+					inRst         => inRst,
+					iInputs       => outputsFirstLayer,
+					iGradients    => gradientsLastLayer,
+					iEta          => iEta,
+					iAlpha        => iAlpha,
+					iUpdateWeight => NetR.UpdateWeight,
+					oOutputs      => outputsLastLayer,
+					oGradients    => gradientsFirstLayer
+				);
+		end generate OneLayer;
+
+		MoreLayersFirst : if (gNumberHiddenLayers > 1 and i = 0) generate
+			HiddenLayer1 : entity work.HiddenLayer
+				generic map(
+					gNumberNeurons   => gNumberNeuronsPerLayer,
+					gNumberPrevLayer => gNumberInputs,
+					gNumberNextLayer => gNumberNeuronsPerLayer
+				)
+				port map(
+					iClk          => iClk,
+					inRst         => inRst,
+					iInputs       => outputsFirstLayer,
+					iGradients    => hiddenLayerGradientArray(i),
+					iEta          => iEta,
+					iAlpha        => iAlpha,
+					iUpdateWeight => NetR.UpdateWeight,
+					oOutputs      => hiddenLayerOutputArray(i),
+					oGradients    => gradientsFirstLayer
+				);
+		end generate MoreLayersFirst;
+
+		MoreLayersBetween : if (gNumberHiddenLayers > 1 and i > 0 and i < gNumberHiddenLayers - 1) generate
+			HiddenLayer2 : entity work.HiddenLayer
+				generic map(
+					gNumberNeurons   => gNumberNeuronsPerLayer,
+					gNumberPrevLayer => gNumberNeuronsPerLayer,
+					gNumberNextLayer => gNumberNeuronsPerLayer
+				)
+				port map(
+					iClk          => iClk,
+					inRst         => inRst,
+					iInputs       => hiddenLayerOutputArray(i - 1),
+					iGradients    => hiddenLayerGradientArray(i),
+					iEta          => iEta,
+					iAlpha        => iAlpha,
+					iUpdateWeight => NetR.UpdateWeight,
+					oOutputs      => hiddenLayerOutputArray(i),
+					oGradients    => hiddenLayerGradientArray(i - 1)
+				);
+		end generate MoreLayersBetween;
+
+		MoreLayersLast : if (gNumberHiddenLayers > 1 and i = gNumberHiddenLayers - 1) generate
+			HiddenLayer3 : entity work.HiddenLayer
+				generic map(
+					gNumberNeurons   => gNumberNeuronsPerLayer,
+					gNumberPrevLayer => gNumberNeuronsPerLayer,
+					gNumberNextLayer => gNumberOutputs
+				)
+				port map(
+					iClk          => iClk,
+					inRst         => inRst,
+					iInputs       => hiddenLayerOutputArray(i - 1),
+					iGradients    => gradientsLastLayer,
+					iEta          => iEta,
+					iAlpha        => iAlpha,
+					iUpdateWeight => NetR.UpdateWeight,
+					oOutputs      => outputsLastLayer,
+					oGradients    => hiddenLayerGradientArray(i - 1)
+				);
+		end generate MoreLayersLast;
+
+	end generate HiddenLayerGen;
 
 	OutputLayer : entity work.OutputLayer
 		generic map(
+			gLearning        => gLearning,
 			gNumberNeurons   => gNumberOutputs,
 			gNumberPrevLayer => gNumberNeuronsPerLayer
 		)
@@ -121,8 +186,8 @@ begin
 			iClk       => iClk,
 			inRst      => inRst,
 			iInputs    => outputsLastLayer,
-			iTargets   => targets,
-			oOutputs   => outputs,
+			iTargets   => iTargets,
+			oOutputs   => oOutputs,
 			oGradients => gradientsLastLayer
 		);
 
@@ -143,9 +208,11 @@ begin
 	--------------------------------------------------------------------
 	Comb : process(NetR, iStart, iLearn, gradientsLastLayer)
 	begin
-		NetNxR           <= NetR;
-		NetNxR.TickCount <= NetR.TickCount + 1;
-		oFinished        <= cInactivated;
+		NetNxR            <= NetR;
+		NetNxR.TickCount  <= NetR.TickCount + 1;
+		oFinishedForward  <= cInactivated;
+		oFinishedBackward <= cInactivated;
+		oFinishedAll	  <= cInactivated;
 
 		case NetR.State is
 			-- In this state, we wait until we get a start signal.
@@ -156,12 +223,13 @@ begin
 					NetNxR.State <= eForwardPropagate;
 				end if;
 			-- We wait until the neural net has processed the input,
-			-- after which we either backpropagate or send a finished
-			-- signal depending on iLearn.
+			-- after which we either backpropagate or directly go to
+			-- finished state depending on iLearn.
 			when eForwardPropagate =>
-				-- We wait one tick per layer (Hidden + Input + Output)
-				if (NetR.TickCount = gNumberHiddenLayers + 2) then
+				-- We wait one tick per layer
+				if (NetR.TickCount = gNumberHiddenLayers) then
 					NetNxR.TickCount <= 0;
+					oFinishedForward <= cActivated;
 					if (NetR.Learn = cActivated) then
 						NetNxR.State <= eBackPropagate;
 					else
@@ -171,16 +239,17 @@ begin
 			-- We wait again until the net has calculated all gradients.
 			-- After that, the weights can be updated.
 			when eBackPropagate =>
-				if (NetR.TickCount = gNumberHiddenLayers + 2) then
+				if (NetR.TickCount = gNumberHiddenLayers) then
+					oFinishedBackward <= cActivated;
 					NetNxR.UpdateWeight <= cActivated;
-				elsif (NetR.TickCount = gNumberHiddenLayers + 3) then
+				elsif (NetR.TickCount = gNumberHiddenLayers + 1) then
 					NetNxR.UpdateWeight <= cInactivated;
 					NetNxR.AvgError     <= resize(abs (calculate_rms(gradientsLastLayer)));
 					NetNxR.State        <= eFinished;
 				end if;
 			-- A finish signal is set and the net returns to IDLE state.
 			when eFinished =>
-				oFinished    <= cActivated;
+				oFinishedAll <= cActivated;
 				NetNxR.Learn <= cInactivated;
 				NetNxR.State <= eIdle;
 		end case;
