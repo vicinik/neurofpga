@@ -43,7 +43,7 @@ begin
 			gLearning              => Supervised,
 			gNumberInputs          => NumberInputs,
 			gNumberOutputs         => NumberOutputs,
-			gNumberHiddenLayers    => 3,
+			gNumberHiddenLayers    => 1,
 			gNumberNeuronsPerLayer => 5
 		)
 		port map(

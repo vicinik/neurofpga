@@ -35,6 +35,7 @@ package NeuroFPGA is
 	function resize(pInput : sfixed) return neuro_real;
 	function percentage_to_neuro_real(pInput : std_ulogic_vector) return neuro_real;
 	function neuro_real_to_percentage(pInput : neuro_real) return std_ulogic_vector;
+	function random_number return neuro_real;
 
 	--------------------------------------------------------------------
 	-- Constants
@@ -95,7 +96,7 @@ package body NeuroFPGA is
 	--------------------------------------------------------------------
 	-- This is the derivative of the activation function. It is needed
 	-- for the calculation of the gradient.
-	function neuro_activation_deriv_1(pInput : neuro_real) return neuro_real is
+	function neuro_activation_deriv(pInput : neuro_real) return neuro_real is
 		variable vReturn : neuro_real := cNeuroNull;
 	begin
 		if (pInput < cActLow) then
@@ -108,7 +109,7 @@ package body NeuroFPGA is
 		return vReturn;
 	end function;
 	-- Derivative of the second activation function.
-	function neuro_activation_deriv(pInput : neuro_real) return neuro_real is
+	function neuro_activation_deriv_1(pInput : neuro_real) return neuro_real is
 		variable vReturn : neuro_real := cNeuroNull;
 	begin
 		if (pInput < cActLow) then
@@ -226,5 +227,16 @@ package body NeuroFPGA is
 	begin
 		tmp := resize(pInput * to_neuro_real(100.0));
 		return std_ulogic_vector(to_unsigned(to_integer(tmp(neuro_real'high downto 0)), cPercentageBitWidth));
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Generate a random neuro_real
+	--------------------------------------------------------------------
+	function random_number return neuro_real is
+		variable seed1, seed2 : integer := 10;
+		variable rand : real;
+	begin
+		uniform(seed1, seed2, rand);
+		return to_neuro_real(rand);
 	end function;
 end package body;
