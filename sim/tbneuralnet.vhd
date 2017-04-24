@@ -38,7 +38,7 @@ begin
 	--------------------------------------------------------------------
 	-- Net instantiation
 	--------------------------------------------------------------------
-	Net : entity work.Net
+	Net : entity work.BP_Net
 		generic map(
 			gLearning              => Supervised,
 			gNumberInputs          => NumberInputs,

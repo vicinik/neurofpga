@@ -36,6 +36,8 @@ package NeuroFPGA is
 	function percentage_to_neuro_real(pInput : std_ulogic_vector) return neuro_real;
 	function neuro_real_to_percentage(pInput : neuro_real) return std_ulogic_vector;
 	function random_number return neuro_real;
+	function add_shift(r : neuro_real; l : neuro_real) return neuro_real;
+	function mul_binary(input : neuro_real; weight : neuro_real) return neuro_real;
 
 	--------------------------------------------------------------------
 	-- Constants
@@ -56,6 +58,60 @@ package body NeuroFPGA is
 	function to_neuro_real(pInput : real) return neuro_real is
 	begin
 		return to_sfixed(pInput, neuro_real'high, neuro_real'low);
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Own implementation of a multiplication, which uses only add
+	-- and shift (therefore no DSPs are needed).
+	-- Disadvantage: very time- and area-consuming!
+	--------------------------------------------------------------------
+	function add_shift(r : neuro_real; l : neuro_real) return neuro_real is
+		variable sign : std_ulogic := '0';
+		variable res, posr, posl : neuro_real := (others => '0');
+	begin
+		sign := r(neuro_real'high) xor l(neuro_real'high);
+		posr := resize(abs(r));
+		posl := resize(abs(l));
+		for i in neuro_real'high - 1 downto neuro_real'low loop
+			if (posl(i) = '1') then
+				res := resize(res + (posr sll i));
+			end if;
+		end loop;
+		if (sign = '1') then
+			res := resize(-res);
+		end if;
+		return res;
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Helper function for generating a shift value out of a neuro_real
+	--------------------------------------------------------------------
+	function to_shiftval(pInput : neuro_real) return integer is
+	begin
+		for i in neuro_real'high - 1 downto neuro_real'low loop
+			if (pInput(i) = '1') then
+				return i;
+			end if;
+		end loop;
+	end function;
+	
+	--------------------------------------------------------------------
+	-- Own implementation of a multiplication in order to reduce the
+	-- amount of DSPs needed. This one only shifts the multiplicand.
+	-- Disadvantage: Quantization errors!
+	--------------------------------------------------------------------
+	function mul_binary(input : neuro_real; weight : neuro_real) return neuro_real is
+		variable sign : std_ulogic := '0';
+		variable res, posinput, posweight : neuro_real := (others => '0');
+	begin
+		sign := input(neuro_real'high) xor weight(neuro_real'high);
+		posinput := resize(abs(input));
+		posweight := resize(abs(weight));
+		res := resize(posinput sll to_shiftval(posweight));
+		if (sign = '1') then
+			res := resize(-res);
+		end if;
+		return res;
 	end function;
 
 	--------------------------------------------------------------------
@@ -226,7 +282,7 @@ package body NeuroFPGA is
 		variable tmp : neuro_real := cNeuroNull;
 	begin
 		tmp := resize(pInput * to_neuro_real(100.0));
-		return std_ulogic_vector(to_unsigned(to_integer(tmp(neuro_real'high downto 0)), cPercentageBitWidth));
+		return std_ulogic_vector(to_unsigned(to_shiftval(tmp(neuro_real'high downto 0)), cPercentageBitWidth));
 	end function;
 	
 	--------------------------------------------------------------------

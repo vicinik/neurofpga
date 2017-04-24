@@ -62,6 +62,6 @@ begin
 	-- ------------------------------------------------------------------
 	-- Output port assignments
 	-- ------------------------------------------------------------------
-	oOutput <= resize(iInput * weightR);
-	oDow    <= resize(iGradient * weightR);
+	oOutput <= mul_binary(iInput, weightR);
+	oDow    <= mul_binary(iGradient, weightR);
 end architecture;
