@@ -7,6 +7,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;
+use ieee.math_real.all;
 use work.Global.all;
 use work.NeuroFPGA.all;
 
@@ -34,12 +35,15 @@ architecture Bhv of BP_InputLayer is
 	signal BiasNeuronOutput : neuro_real                                       := cNeuroNull;
 	signal BiasNeuronDows   : neuro_real_vector(gNumberNextLayer - 1 downto 0) := (others => cNeuroNull);
 begin
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Connections from input to next layer. No input neurons required,
 	-- because input values are taken directly.
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	Connections : for i in 0 to gNumberInputs * gNumberNextLayer - 1 generate
 		Con : entity work.BP_Connection
+			generic map(
+				gInitWeight => to_neuro_real(cRandomNumbers1((i + (i / gNumberInputs)) mod cRandomNumbers1'length))
+			)
 			port map(
 				iClk          => iClk,
 				inRst         => inRst,
@@ -53,9 +57,9 @@ begin
 			);
 	end generate;
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Bias neuron
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	BiasNeuron : entity work.BP_Neuron
 		generic map(
 			gTypeOfNeuron => Bias_Neuron,
@@ -68,14 +72,18 @@ begin
 			iInputs   => cBiasNeuronInput,
 			iDows     => BiasNeuronDows,
 			oOutput   => BiasNeuronOutput,
-			oGradient => open
+			oGradient => open,
+			oDow      => open
 		);
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Bias neuron connections
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	BiasConnections : for i in 0 to gNumberNextLayer - 1 generate
 		BiasCon : entity work.BP_Connection
+			generic map(
+				gInitWeight => to_neuro_real(cRandomNumbers1(((i + 1) *(gNumberInputs + 1) - 1) mod cRandomNumbers1'length))
+			)
 			port map(
 				iClk          => iClk,
 				inRst         => inRst,
@@ -84,7 +92,7 @@ begin
 				iEta          => iEta,
 				iAlpha        => iAlpha,
 				iUpdateWeight => iUpdateWeight,
-				oOutput       => oOutputs((i + 1) * (gNumberInputs + 1) - 1),
+				oOutput       => oOutputs((i + 1) *(gNumberInputs + 1) - 1),
 				oDow          => BiasNeuronDows(i)
 			);
 	end generate;

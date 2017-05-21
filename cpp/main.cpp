@@ -8,6 +8,9 @@
 #include <iomanip>
 #include <string>
 #include <vector>
+#include <fstream>
+#include <time.h>
+#include <cstdlib>
 #include "NeuralNet.h"
 #include "Manipulators.h"
 
@@ -43,35 +46,38 @@ void PrintTestContainer(vector<TestData> const& testVector) {
 	}
 }
 
-int main(){
-	PrintHeader("Training Neural Network");
+void TrainNet(string const& fileName, size_t const maxRuns) {
+	PrintHeader(fileName);
 	NeuralNet net({ 2, 5, 1 }, PrepareResults);
-	size_t numberRuns = 10000;
-	string input;
+	ofstream fileStream(fileName);
 
 	// Test data ----------------------------
 	vector<TestData> testVector;
 	TestData data1 = { { 0,0 },{ 0 } };
-	TestData data2 = { { 1,0 },{ 0 } };
-	TestData data3 = { { 0,1 },{ 0 } };
-	TestData data4 = { { 1,1 },{ 1 } };
+	TestData data2 = { { 1,0 },{ 1 } };
+	TestData data3 = { { 0,1 },{ 1 } };
+	TestData data4 = { { 1,1 },{ 0 } };
 	testVector.push_back(data1);
 	testVector.push_back(data2);
 	testVector.push_back(data3);
 	testVector.push_back(data4);
-
-	cout << "Press [ENTER] to begin training..." << endl;
-	getc(stdin);
 
 	// Print test data
 	PrintSubHeader("Test data and expected results");
 	PrintTestContainer(testVector);
 
 	// Train --------------------------------
-	for (size_t i = 0; i < numberRuns; ++i) {
+	for (size_t i = 0; i < maxRuns; ++i) {
 		auto& testData = testVector[i%testVector.size()];
 		net.Train(testData.input, testData.target);
-		if (i < testVector.size() || i % (numberRuns/4) == 0 || i >= numberRuns - testVector.size()) {
+
+		// Write to csv file to be able to show an error diagram
+		if (fileStream.is_open() && i % testVector.size() == 0) {
+			fileStream << to_string(i + 1) << "," << net.getRecentError() << endl;
+		}
+
+		// Print some iterations out in console
+		if (i % (maxRuns / 10) == 0) {
 			PrintSubHeader("Run number " + to_string(i + 1));
 			PrintContainer("Input    ", testData.input);
 			PrintContainer("Expected ", testData.target);
@@ -80,8 +86,17 @@ int main(){
 		}
 	}
 
-	cout << endl << "Press [ENTER] to exit..." << endl;
-	getc(stdin);
+	fileStream.close();
+	cout << endl;
+}
+
+int main(){
+	// initialize random generator
+	srand(time(NULL));
+
+	TrainNet("tanh_etaback1.csv", 800);
+	TrainNet("tanh_etaback2.csv", 800);
+	TrainNet("tanh_etaback3.csv", 800);
 
 	return 0;
 }

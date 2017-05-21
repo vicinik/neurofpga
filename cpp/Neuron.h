@@ -60,18 +60,21 @@ public:
 	//-------------------------------------------------------------------------------------
 	///Description: Get the current gradient
 	double getGradient() const;
+	//-------------------------------------------------------------------------------------
+	///Description: Set the learning rate (eta)
+	void setEta(double const& eta);
 
 private:
 	double mOutputVal = 0.0;
 	double mGradient = 0.0;
 	size_t mMyIndex = 0;
 	std::vector<Connection> mConnections;
+	double mEta = 0.15;
 
 	double sumDow(LayerNeurons const& nextLayer) const;
 	static double getRandomWeight();
 	static double activationFunc(double const x);
 	static double activationFuncDeriv(double const x);
-	const double eta = 0.25;
-	const double alpha = 0.5;
+	const double alpha = 0.0;
 };
 #endif //_NEURON

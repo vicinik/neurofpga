@@ -11,6 +11,9 @@ use work.Global.all;
 use work.NeuroFPGA.all;
 
 entity BP_Connection is
+	generic(
+		gInitWeight : neuro_real
+	);
 	port(
 		iClk          : in  std_ulogic;
 		inRst         : in  std_ulogic;
@@ -30,7 +33,7 @@ end entity;
 architecture Bhv of BP_Connection is
 	signal weightNxR                    : neuro_real := cNeuroNull;
 	signal deltaWeightR, deltaWeightNxR : neuro_real := cNeuroNull;
-	signal weightR                      : neuro_real := random_number;
+	signal weightR                      : neuro_real := gInitWeight;
 begin
 	-- ------------------------------------------------------------------
 	-- Register process
@@ -39,6 +42,7 @@ begin
 	begin
 		if (inRst = cnActivated) then
 			deltaWeightR <= cNeuroNull;
+			weightR      <= gInitWeight;
 		elsif (iClk'event and iClk = cActivated) then
 			if (iUpdateWeight = cActivated) then
 				weightR      <= weightNxR;
@@ -53,15 +57,21 @@ begin
 	WeightUpdate : process(weightR, deltaWeightR, iInput, iGradient, iEta, iAlpha)
 		variable newDeltaWeight : neuro_real := cNeuroNull;
 	begin
+		weightNxR      <= weightR;
+		deltaWeightNxR <= deltaWeightR;
+
 		-- The new delta-weight is calculated
-		newDeltaWeight := resize(iEta * iInput * iGradient + iAlpha * deltaWeightR);
-		deltaWeightNxR <= newDeltaWeight;
-		weightNxR      <= resize(weightR + newDeltaWeight);
+		if (iInput > to_neuro_real(-2.0)) then
+			newDeltaWeight := resize(iEta * iInput * iGradient + iAlpha * deltaWeightR);
+			-- newDeltaWeight := resize(iEta * iInput * iGradient);
+			deltaWeightNxR <= newDeltaWeight;
+			weightNxR      <= resize(weightR + newDeltaWeight);
+		end if;
 	end process;
 
 	-- ------------------------------------------------------------------
 	-- Output port assignments
 	-- ------------------------------------------------------------------
-	oOutput <= mul_binary(iInput, weightR);
-	oDow    <= mul_binary(iGradient, weightR);
+	oOutput <= resize(iInput * weightR);
+	oDow    <= resize(iGradient * weightR);
 end architecture;

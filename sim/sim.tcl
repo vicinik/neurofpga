@@ -12,4 +12,4 @@ vcom -2008 -work work {tbneuralnet.vhd}
 vsim TbNeuralNet
 do wave.do
 
-run 4.5 ms;
+run 8.9 ms;

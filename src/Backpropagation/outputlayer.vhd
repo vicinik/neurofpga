@@ -24,7 +24,8 @@ entity BP_OutputLayer is
 		iTargets      : in  neuro_real_vector(gNumberNeurons - 1 downto 0);
 		-- Layer output
 		oOutputs      : out neuro_real_vector(gNumberNeurons  - 1 downto 0);
-		oGradients    : out neuro_real_vector(gNumberNeurons - 1 downto 0)
+		oGradients    : out neuro_real_vector(gNumberNeurons - 1 downto 0);
+		oDows		  : out neuro_real_vector(gNumberNeurons - 1 downto 0)
 	);
 end entity;
 
@@ -47,7 +48,8 @@ begin
 				iInputs   => iInputs((i + 1) * (gNumberPrevLayer + 1) - 1 downto i * (gNumberPrevLayer + 1)),
 				iDows     => iTargets(i downto i),
 				oOutput   => oOutputs(i),
-				oGradient => oGradients(i)
+				oGradient => oGradients(i),
+				oDow	  => oDows(i)
 			);
 	end generate;
 end architecture;

@@ -25,7 +25,8 @@ entity BP_Neuron is
 		iDows     : in  neuro_real_vector(gNumberDows - 1 downto 0);
 		-- Neuron outputs
 		oOutput   : out neuro_real;
-		oGradient : out neuro_real
+		oGradient : out neuro_real;
+		oDow	  : out neuro_real
 	);
 end entity;
 
@@ -57,7 +58,9 @@ begin
 		sumInput := cNeuroNull;
 
 		for i in 0 to gNumberInputs - 1 loop
-			sumInput := resize(sumInput + iInputs(i));
+			if (iInputs(i) > to_neuro_real(-2.0)) then
+				sumInput := resize(sumInput + iInputs(i));
+			end if;
 		end loop;
 
 		inputNxR <= sumInput;
@@ -89,8 +92,9 @@ begin
 	--------------------------------------------------------------------
 	-- Output port assignments
 	--------------------------------------------------------------------
-	output    <= cNeuroOne when gTypeOfNeuron = Bias_Neuron else neuro_activation_func(inputR);
+	output    <= to_neuro_real(1.0) when gTypeOfNeuron = Bias_Neuron else neuro_activation_func(inputR);
 	gradient  <= cNeuroNull when gTypeOfNeuron = Bias_Neuron else resize(dowR * neuro_activation_deriv(output));
 	oOutput   <= output;
 	oGradient <= gradient;
+	oDow	  <= dowR;
 end architecture;

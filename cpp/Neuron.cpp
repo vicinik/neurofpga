@@ -28,7 +28,7 @@ void Neuron::UpdateInputWeights(LayerNeurons& prevLayer)
 
 		double newDeltaWeight =
 			// individual input, magnified by the gradient and train rate (eta)
-			eta
+			mEta
 			* prevNeuron.getOutputVal()
 			* mGradient
 			// also add momentum = a fraction of the previous delta weight
@@ -85,6 +85,13 @@ double Neuron::getGradient() const
 	return mGradient;
 }
 
+void Neuron::setEta(double const& eta)
+{
+	if (eta > 0.0) {
+		mEta = eta;
+	}
+}
+
 double Neuron::sumDow(LayerNeurons const& nextLayer) const
 {
 	double sum = 0.0;
@@ -112,8 +119,9 @@ double Neuron::activationFunc(double const x)
 
 double Neuron::activationFuncDeriv(double const x)
 {
-	//return 1 / (1 + x*x);
-	if (x > 1.0) return 0.0;
+	return 1 / (1 + x*x);
+	//return 1 - x*x;
+	/*if (x > 1.0) return 0.0;
 	else if (x < -1.0) return 0.0;
-	else return 1.0;
+	else return 1.0;*/
 }

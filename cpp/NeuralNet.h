@@ -50,6 +50,7 @@ private:
 	double mError = 0.0;
 	double mRecentError = 0.0;
 	const double mBeta = 0.5;
+	const double mEtaUpdate = 0.55;
 	const ActivationFunc mOutputActivationFunc;
 };
 #endif //_NET

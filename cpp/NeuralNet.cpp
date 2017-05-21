@@ -90,6 +90,12 @@ void NeuralNet::BackPropagate(Data const & target)
 			layer.getNeuronAt(j).UpdateInputWeights(prevLayer.getNeurons());
 		}
 	}
+
+	// update learning rate (eta)
+	double etaUpdate = mRecentError * mEtaUpdate;
+	for (size_t i = 0; i < mLayers.size(); ++i) {
+		mLayers[i].setEta(etaUpdate);
+	}
 }
 
 void NeuralNet::Train(Data const & input, Data const & target)

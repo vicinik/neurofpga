@@ -25,7 +25,8 @@ end entity;
 architecture bed of TbdNeuralNet_BP is
 	-- Constants
 	constant Eta                       : neuro_real := to_neuro_real(0.15);
-	constant Alpha                     : neuro_real := to_neuro_real(0.5);
+	constant Alpha                     : neuro_real := to_neuro_real(0.0);
+	constant NumberNeuronsHiddenLayer  : natural    := 5;
 	constant NumberInputs              : natural    := 2;
 	constant NumberOutputs             : natural    := 1;
 	
@@ -44,7 +45,7 @@ begin
 			gNumberInputs          => NumberInputs,
 			gNumberOutputs         => NumberOutputs,
 			gNumberHiddenLayers    => 1,
-			gNumberNeuronsPerLayer => 5
+			gNumberNeuronsPerLayer => NumberNeuronsHiddenLayer
 		)
 		port map(
 			iClk              => iClk,

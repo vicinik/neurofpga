@@ -33,7 +33,7 @@ entity BP_Net is
 		oOutputs          : out neuro_real_vector(gNumberOutputs - 1 downto 0);
 		oFinishedForward  : out std_ulogic;
 		oFinishedBackward : out std_ulogic;
-		oFinishedAll	  : out std_ulogic;
+		oFinishedAll      : out std_ulogic;
 		oError            : out neuro_real
 	);
 end entity;
@@ -48,6 +48,7 @@ architecture Bhv of BP_Net is
 	signal outputsFirstLayer        : neuro_real_vector((gNumberInputs + 1) * gNumberNeuronsPerLayer - 1 downto 0)  := (others => cNeuroNull);
 	signal gradientsLastLayer       : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
 	signal outputsLastLayer         : neuro_real_vector((gNumberNeuronsPerLayer + 1) * gNumberOutputs - 1 downto 0) := (others => cNeuroNull);
+	signal dowsLastLayer            : neuro_real_vector(gNumberOutputs - 1 downto 0)                                := (others => cNeuroNull);
 	signal hiddenLayerOutputArray   : aHiddenLayerOutputArray(gNumberHiddenLayers - 2 downto 0)                     := (others => (others => cNeuroNull));
 	signal hiddenLayerGradientArray : aHiddenLayerGradientArray(gNumberHiddenLayers - 2 downto 0)                   := (others => (others => cNeuroNull));
 
@@ -58,25 +59,27 @@ architecture Bhv of BP_Net is
 		Learn        : std_ulogic;
 		TickCount    : natural;
 		UpdateWeight : std_ulogic;
-		AvgError     : neuro_real;
+		SqrError     : neuro_real;
+		OutError     : neuro_real;
 	end record;
 	constant cNetRegInit : aNetRegSet := (
 		State        => eIdle,
 		Learn        => '0',
 		TickCount    => 0,
 		UpdateWeight => '0',
-		AvgError     => cNeuroNull
+		SqrError     => cNeuroNull,
+		OutError     => cNeuroNull
 	);
-	signal NetR, NetNxR : aNetRegSet := cNetRegInit;
+	signal NetR, NetNxR  : aNetRegSet := cNetRegInit;
 begin
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Output assignments
-	--------------------------------------------------------------------
-	oError <= NetR.AvgError;
+	-- ------------------------------------------------------------------
+	oError <= NetR.SqrError;
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Layer instantiations
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	InputLayer : entity work.BP_InputLayer
 		generic map(
 			gNumberInputs    => gNumberInputs,
@@ -188,12 +191,13 @@ begin
 			iInputs    => outputsLastLayer,
 			iTargets   => iTargets,
 			oOutputs   => oOutputs,
-			oGradients => gradientsLastLayer
+			oGradients => gradientsLastLayer,
+			oDows      => dowsLastLayer
 		);
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Register process
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	Reg : process(iClk, inRst)
 	begin
 		if (inRst = cnActivated) then
@@ -203,16 +207,16 @@ begin
 		end if;
 	end process;
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Combinational process with control
-	--------------------------------------------------------------------
-	Comb : process(NetR, iStart, iLearn, gradientsLastLayer)
+	-- ------------------------------------------------------------------
+	Comb : process(NetR, iStart, iLearn, dowsLastLayer)
 	begin
 		NetNxR            <= NetR;
 		NetNxR.TickCount  <= NetR.TickCount + 1;
 		oFinishedForward  <= cInactivated;
 		oFinishedBackward <= cInactivated;
-		oFinishedAll	  <= cInactivated;
+		oFinishedAll      <= cInactivated;
 
 		case NetR.State is
 			-- In this state, we wait until we get a start signal.
@@ -227,11 +231,12 @@ begin
 			-- finished state depending on iLearn.
 			when eForwardPropagate =>
 				-- We wait one tick per layer
-				if (NetR.TickCount = gNumberHiddenLayers) then
+				if (NetR.TickCount = gNumberHiddenLayers + 2) then
 					NetNxR.TickCount <= 0;
 					oFinishedForward <= cActivated;
 					if (NetR.Learn = cActivated) then
-						NetNxR.State <= eBackPropagate;
+						NetNxR.SqrError <= calculate_sqr(dowsLastLayer);
+						NetNxR.State    <= eBackPropagate;
 					else
 						NetNxR.State <= eFinished;
 					end if;
@@ -239,19 +244,19 @@ begin
 			-- We wait again until the net has calculated all gradients.
 			-- After that, the weights can be updated.
 			when eBackPropagate =>
-				if (NetR.TickCount = gNumberHiddenLayers) then
-					oFinishedBackward <= cActivated;
+				if (NetR.TickCount = gNumberHiddenLayers + 2) then
+					oFinishedBackward   <= cActivated;
 					NetNxR.UpdateWeight <= cActivated;
-				elsif (NetR.TickCount = gNumberHiddenLayers + 1) then
+				elsif (NetR.TickCount = gNumberHiddenLayers + 3) then
 					NetNxR.UpdateWeight <= cInactivated;
-					NetNxR.AvgError     <= resize(abs (calculate_rms(gradientsLastLayer)));
 					NetNxR.State        <= eFinished;
 				end if;
 			-- A finish signal is set and the net returns to IDLE state.
 			when eFinished =>
-				oFinishedAll <= cActivated;
-				NetNxR.Learn <= cInactivated;
-				NetNxR.State <= eIdle;
+				oFinishedAll    <= cActivated;
+				NetNxR.OutError <= NetR.SqrError;
+				NetNxR.Learn    <= cInactivated;
+				NetNxR.State    <= eIdle;
 		end case;
 	end process;
 end architecture;

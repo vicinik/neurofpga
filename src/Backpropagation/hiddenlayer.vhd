@@ -7,6 +7,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.fixed_pkg.all;
+use ieee.math_real.all;
 use work.Global.all;
 use work.NeuroFPGA.all;
 
@@ -39,9 +40,9 @@ architecture Bhv of BP_HiddenLayer is
 	signal BiasNeuronOutput  : neuro_real                                                        := cNeuroNull;
 	signal BiasNeuronDows    : neuro_real_vector(gNumberNextLayer - 1 downto 0)                  := (others => cNeuroNull);
 begin
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Neurons
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	Neurons : for i in 0 to gNumberNeurons - 1 generate
 		Neur : entity work.BP_Neuron
 			generic map(
@@ -52,18 +53,22 @@ begin
 			port map(
 				iClk      => iClk,
 				inRst     => inRst,
-				iInputs   => iInputs((i + 1) * (gNumberPrevLayer + 1) - 1 downto i * (gNumberPrevLayer + 1)),
+				iInputs   => iInputs((i + 1) *(gNumberPrevLayer + 1) - 1 downto i *(gNumberPrevLayer + 1)),
 				iDows     => ConnectDowsNeuron((i + 1) * gNumberNextLayer - 1 downto i * gNumberNextLayer),
 				oOutput   => ConnectOutputs(i),
-				oGradient => oGradients(i)
+				oGradient => oGradients(i),
+				oDow      => open
 			);
 	end generate;
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Connections from neurons to next layer. 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	Connections : for i in 0 to gNumberNeurons * gNumberNextLayer - 1 generate
 		Con : entity work.BP_Connection
+			generic map(
+				gInitWeight => to_neuro_real(cRandomNumbers2((i + (i / gNumberNeurons)) mod cRandomNumbers2'length))
+			)
 			port map(
 				iClk          => iClk,
 				inRst         => inRst,
@@ -77,9 +82,9 @@ begin
 			);
 	end generate;
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Match dows from connections to neurons
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	MatchDows : process(ConnectDowsCon)
 	begin
 		for i in 0 to ConnectDowsCon'length - 1 loop
@@ -87,9 +92,9 @@ begin
 		end loop;
 	end process;
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Bias neuron
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	BiasNeuron : entity work.BP_Neuron
 		generic map(
 			gTypeOfNeuron => Bias_Neuron,
@@ -102,14 +107,18 @@ begin
 			iInputs   => cBiasNeuronInput,
 			iDows     => BiasNeuronDows,
 			oOutput   => BiasNeuronOutput,
-			oGradient => open
+			oGradient => open,
+			oDow      => open
 		);
 
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	-- Bias neuron connections
-	--------------------------------------------------------------------
+	-- ------------------------------------------------------------------
 	BiasConnections : for i in 0 to gNumberNextLayer - 1 generate
 		BiasCon : entity work.BP_Connection
+			generic map(
+				gInitWeight => to_neuro_real(cRandomNumbers2(((i + 1) *(gNumberNeurons + 1) - 1) mod cRandomNumbers2'length))
+			)
 			port map(
 				iClk          => iClk,
 				inRst         => inRst,
@@ -118,7 +127,7 @@ begin
 				iEta          => iEta,
 				iAlpha        => iAlpha,
 				iUpdateWeight => iUpdateWeight,
-				oOutput       => oOutputs((i + 1) * (gNumberNeurons + 1) - 1),
+				oOutput       => oOutputs((i + 1) *(gNumberNeurons + 1) - 1),
 				oDow          => BiasNeuronDows(i)
 			);
 	end generate;

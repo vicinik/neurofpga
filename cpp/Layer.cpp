@@ -38,3 +38,10 @@ Neuron & Layer::getNeuronAt(size_t const index)
 	if (index >= mNeurons.size()) throw string("Layer doesn't have that many neurons");
 	return mNeurons[index];
 }
+
+void Layer::setEta(double const & eta)
+{
+	for (int i = 0; i < mNeurons.size(); ++i) {
+		mNeurons[i].setEta(eta);
+	}
+}

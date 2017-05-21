@@ -35,6 +35,10 @@ public:
 	///Params: [index] Index of neuron
 	///Return: Reference to the neuron
 	Neuron& getNeuronAt(size_t const index);
+	//-------------------------------------------------------------------------------------
+	///Description: Set the eta of all neurons
+	///Params: [eta] Learning rate
+	void setEta(double const& eta);
 private:
 	std::vector<Neuron> mNeurons;
 };
